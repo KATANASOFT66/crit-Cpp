@@ -236,14 +236,14 @@ static void DrawIconIn(Canvas& cv, int tex, const Rect& box, const Color& tint) 
     cv.Image(tex, box, tint);
 }
 
-bool UIContext::Button(const string& id, const Rect& r, const string& label, bool primary, bool small, bool disabled,
+bool UIContext::Button(const string& id, const Rect& r, const string& label, bool primary, bool compact, bool disabled,
                        int icon, const string& tip) {
     const Theme& th = GetTheme();
     bool hover = !disabled && Hit(r);
     float hov = anim.HoverFade(id, hover);
     float press = disabled ? 0.f : anim.PressFade(id, in.down && hover);
     Rect rr = r.inset(press * 1.2f);
-    float radius = small ? 9.f : 10.f;
+    float radius = compact ? 9.f : 10.f;
     Color bg = primary ? th.accent.mix(th.accentHover, hov) : th.panel2.mix(th.panel3, hov);
     Color border = primary ? th.accent.mix(th.accentHover, hov) : th.border.mix(Color::hex(0x323845), hov);
     Color fg = primary ? th.accentInk : th.text;
@@ -258,15 +258,15 @@ bool UIContext::Button(const string& id, const Rect& r, const string& label, boo
     cv->FillRounded(rr, radius, bg);
     cv->StrokeRounded(rr.inset(0.5f), radius - 0.5f, 1.f, border);
     TextStyle st;
-    st.size = small ? 13.f : 14.f;
+    st.size = compact ? 13.f : 14.f;
     st.weight = primary ? 600 : 500;
     st.color = fg;
     float tw = Fonts().MeasureLine(label, st);
-    float iconW = icon >= 0 ? (small ? 13.f : 15.f) + (label.empty() ? 0.f : 8.f) : 0.f;
+    float iconW = icon >= 0 ? (compact ? 13.f : 15.f) + (label.empty() ? 0.f : 8.f) : 0.f;
     float total = tw + iconW;
     float cx = rr.x + (rr.w - total) * 0.5f;
     if (icon >= 0) {
-        float isz = small ? 13.f : 15.f;
+        float isz = compact ? 13.f : 15.f;
         DrawIconIn(cv, icon, Rect(cx, rr.y + (rr.h - isz) * 0.5f, isz, isz), fg);
         cx += isz + (label.empty() ? 0.f : 8.f);
     }

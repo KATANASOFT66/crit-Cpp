@@ -1,6 +1,14 @@
 // Crit Launcher Native — retained-state UI framework (immediate mode layout).
 #pragma once
 
+// This header is included from nearly every translation unit, and some of them
+// pull in <windows.h> first, where rpcndr.h does "#define small char". That
+// macro turns "bool small = false" into "bool char = false" (C2632). Undo it
+// here so this header is safe no matter what the includer already dragged in.
+#ifdef small
+#undef small
+#endif
+
 #include <map>
 #include <memory>
 #include <set>
@@ -133,7 +141,7 @@ public:
     void SetBaseClip(const Rect& r) { baseClip_ = r; }
 
     // -------- widgets (return true on activation)
-    bool Button(const string& id, const Rect& r, const string& label, bool primary = false, bool small = false,
+    bool Button(const string& id, const Rect& r, const string& label, bool primary = false, bool compact = false,
                 bool disabled = false, int icon = -1, const string& tip = "");
     bool GhostButton(const string& id, const Rect& r, const string& label, int icon = -1);
     bool IconButton(const string& id, const Rect& r, int icon, float iconSize = 18, const string& tip = "");

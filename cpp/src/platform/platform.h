@@ -36,6 +36,9 @@ public:
     virtual void Destroy() = 0;
     // OS message pump. Returns false when the app should quit.
     virtual bool PumpMessages(RendererState& state) = 0;
+    // Draws the frame's display list. Must be called before Present(), every
+    // frame -- the window is black otherwise.
+    virtual void RenderFrame(RendererState& state) = 0;
     virtual void Present() = 0;
     virtual void Resize(int w, int h) = 0;
     virtual Vec2 ClientSize() const = 0;

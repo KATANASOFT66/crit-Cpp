@@ -313,9 +313,14 @@ struct D3DRenderer {
         if (!swap) return false;
         if (!CompileShaders()) return false;
         // states
+        // The pixel shaders emit *premultiplied* output: PSShape returns
+        // float4(i.color.rgb, i.color.a * cov), i.e. straight rgb with the alpha
+        // already scaled into coverage. Blending with SRC_ALPHA would multiply by
+        // alpha a second time, and the shadow pass (rgb = 0) would darken the
+        // backdrop instead of fading out. ONE / INV_SRC_ALPHA matches the source.
         D3D11_BLEND_DESC bd{};
         bd.RenderTarget[0].BlendEnable = TRUE;
-        bd.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        bd.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
         bd.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
         bd.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
         bd.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
@@ -339,7 +344,9 @@ struct D3DRenderer {
         device->CreateDepthStencilState(&dsd, &depthOff);
         D3D11_BUFFER_DESC cbd{};
         cbd.Usage = D3D11_USAGE_DYNAMIC;
-        cbd.ByteWidth = 16;
+        // two float4s: g_params (shape type) + g_screen (viewport size for the
+        // pixel->clip transform in VSMain)
+        cbd.ByteWidth = 32;
         cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
         cbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         device->CreateBuffer(&cbd, nullptr, &cb);
@@ -446,7 +453,8 @@ struct D3DRenderer {
             dc->RSSetScissorRects(1, &scissor);
             D3D11_MAPPED_SUBRESOURCE map{};
             if (SUCCEEDED(dc->Map(cb, 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
-                float params[4] = {(float)b.shapeType, 0, 0, 0};
+                float params[8] = {(float)b.shapeType, 0, 0, 0,
+                                   (float)width,        (float)height, 0, 0};
                 memcpy(map.pData, params, sizeof params);
                 dc->Unmap(cb, 0);
             }
@@ -627,7 +635,7 @@ public:
         CloseClipboard();
     }
 
-    void RenderFrame(RendererState& state) { gpu.Frame(state); }
+    void RenderFrame(RendererState& state) override { gpu.Frame(state); }
 
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         WinPlatform* self = (WinPlatform*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);

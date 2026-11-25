@@ -441,6 +441,8 @@ struct D3DRenderer {
         dc->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
         dc->IASetIndexBuffer(ib, DXGI_FORMAT_R32_UINT, 0);
         ID3D11ShaderResourceView* whiteView = cv.white && cv.white->gpu ? (ID3D11ShaderResourceView*)cv.white->gpu : nullptr;
+        int drawnBatches = 0;
+        static int frameLog = 0;
         for (const Batch& b : cv.batches) {
             if (b.indexCount == 0) continue;
             D3D11_RECT scissor{(LONG)std::floor(b.clip.x), (LONG)std::floor(b.clip.y),
@@ -458,6 +460,11 @@ struct D3DRenderer {
                 memcpy(map.pData, params, sizeof params);
                 dc->Unmap(cb, 0);
             }
+            // The same 32-byte buffer feeds both stages: the VS needs g_screen
+            // for the pixel->clip transform, the PS needs g_params. Binding it
+            // only to the PS left g_screen unbound, so it read as zeros and every
+            // quad stayed off-screen (the window rendered only the clear color).
+            dc->VSSetConstantBuffers(0, 1, &cb);
             dc->PSSetConstantBuffers(0, 1, &cb);
             ID3D11ShaderResourceView* view = whiteView;
             if (b.kind == BatchKind::Sdf) {
@@ -477,9 +484,20 @@ struct D3DRenderer {
             }
             dc->PSSetShaderResources(0, 1, &view);
             dc->DrawIndexed(b.indexCount, b.firstIndex, 0);
+            drawnBatches++;
         }
         vb->Release();
         ib->Release();
+
+        // Once-a-second sanity line: distinguishes "nothing submitted" from
+        // "submitted but not visible" without needing another screenshot.
+        static int logged = 0;
+        if (logged < 3 && ++frameLog >= 60) {
+            frameLog = 0;
+            Log("frame: batches=%d drawn=%d verts=%d indices=%d viewport=%dx%d",
+                (int)cv.batches.size(), drawnBatches, (int)cv.verts.size(), (int)cv.indices.size(), width, height);
+            logged++;
+        }
     }
 
     void Present() {

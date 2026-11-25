@@ -738,6 +738,9 @@ void App::Frame() {
     input.textInput.clear();
     input.keyBackspace = input.keyEnter = input.keyEscape = input.keyTab = false;
 
+    // Draw the display list, then flip. Without RenderFrame the window shows
+    // nothing but the clear color -- it was never wired up before.
+    platform->RenderFrame(render);
     platform->Present();
 
     // fade the boot overlay after a moment

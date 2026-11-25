@@ -24,14 +24,25 @@ struct PSIn {
 
 cbuffer Params : register(b0) {
     float4 g_params;  // x = shape type (0 fill, 1 shadow, 2 border)
+    float4 g_screen;  // xy = viewport size in pixels, zw = unused
 };
 
 Texture2D    g_tex : register(t0);
 SamplerState g_smp : register(s0);
 
+// Canvas emits device-pixel coordinates with y growing downward; SV_Position
+// wants clip space (-1..1, y up). Without this the quads were drawn thousands
+// of units off-screen and the window came up completely black.
+float2 PixelToClip(float2 px, float2 screen) {
+    float2 ndc = px / screen;          // 0..1
+    ndc.y = 1.0 - ndc.y;              // flip to y-up
+    return ndc * 2.0 - 1.0;           // 0..1 -> -1..1
+}
+
 PSIn VSMain(VSIn i) {
     PSIn o;
-    o.pos = float4(i.pos, 0.0, 1.0);
+    float2 screen = max(g_screen.xy, float2(1.0, 1.0));
+    o.pos = float4(PixelToClip(i.pos, screen), 0.0, 1.0);
     o.uv = i.uv;
     o.color = i.color;
     o.local = i.local;

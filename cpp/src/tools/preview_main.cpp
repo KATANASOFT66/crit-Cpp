@@ -19,6 +19,7 @@ public:
     }
     void Destroy() override {}
     bool PumpMessages(RendererState&) override { return true; }
+    void RenderFrame(RendererState&) override {}  // rasterizer draws separately
     void Present() override {}
     void Resize(int w, int h) override { sz = Vec2((float)w, (float)h); }
     Vec2 ClientSize() const override { return sz; }

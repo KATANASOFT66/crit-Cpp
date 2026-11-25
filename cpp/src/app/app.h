@@ -124,7 +124,7 @@ struct Sidebar {
     Rect collapseBtn;
 };
 
-class App {
+struct App {
 public:
     App();
     ~App();

@@ -10,7 +10,7 @@
 
 namespace crit {
 
-class App;
+struct App;
 struct RendererState;
 
 // Rich display list used by the renderer each frame

@@ -208,7 +208,7 @@ struct DropdownState {
     Rect panel;
 };
 
-class App;
+struct App;
 struct UIRoot {
     UIRoot();
     App* app = nullptr;

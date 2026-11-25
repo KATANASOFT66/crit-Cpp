@@ -2,8 +2,8 @@
 #include "app/app.h"
 
 #include "app/pages.h"
+#include "core/pngread.h"
 #include "core/win_icons.h"
-#include "render/preview.h"
 
 namespace crit {
 
@@ -22,14 +22,10 @@ int App::LoadImageTexture(const string& path, bool keepCpu) {
     (void)keepCpu;
     std::vector<uint8_t> bytes = ReadFileBytes(path);
     if (bytes.empty()) return -1;
-    RasterTarget img;
+    ImageRGBA img;
     // PNG only (the bundled art is PNG); JPEG would need a decoder we don't ship.
     if (bytes.size() > 4 && bytes[0] == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G') {
-        string tmp = DataPath("tmp_decode.png");
-        MakeDirs(PathParent(tmp));
-        if (!WriteFileBytes(tmp, bytes)) return -1;
-        if (!PngRead(tmp, img)) return -1;
-        DeleteFileAt(tmp);
+        if (!PngDecode(bytes, img)) return -1;
     } else {
         return -1;
     }
@@ -594,8 +590,8 @@ void App::LoadSkin(Account& acc) {
             if (!a || bytes.empty()) return;
             string tmp = DataPath("tmp_skin.png");
             WriteFileBytes(tmp, bytes);
-            RasterTarget img;
-            if (PngRead(tmp, img)) {
+            ImageRGBA img;
+            if (PngDecode(ReadFileBytes(tmp), img)) {
                 auto tex = std::make_shared<Texture>();
                 tex->w = img.w;
                 tex->h = img.h;

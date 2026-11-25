@@ -1,12 +1,32 @@
 // Crit Launcher Native — Win32 window + DirectX 11 renderer + WinHTTP.
 #ifdef _WIN32
 
+// windows.h defines min/max as macros: every std::min/std::max below would turn
+// into garbage ("'(' : illegal token on right side of '::'") without this.
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+// Keep <winsock.h> out of the way so it can't clash with the WinHTTP headers.
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#include <windows.h>
+#include <windowsx.h>  // GET_X_LPARAM / GET_Y_LPARAM
 #include <d3d11.h>
+#include <d3d11_1.h>
+#include <dxgi1_3.h>  // IDXGIFactory2, DXGI_SWAP_CHAIN_DESC1
 #include <dwmapi.h>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <wincodec.h>
 #include <winhttp.h>
+
+// rpcndr.h (pulled in by windows.h) aliases "small" to "char"; the UI uses that
+// as a parameter name, so drop the macro before the crit headers.
+#ifdef small
+#undef small
+#endif
 
 #include <cstdio>
 #include <thread>
@@ -14,6 +34,8 @@
 #include "core/win_icons.h"
 
 #include "platform/platform.h"
+#include "render/renderer_hooks.h"
+#include "ui/ui.h"  // InputState
 #include "platform/win_shaders.h"
 
 #ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
@@ -81,9 +103,9 @@ static HttpResult WhRequest(const std::wstring& method, const string& url, const
         result.error = "bad url";
         return result;
     }
-    std::wstring host(uc.lwpsHostName, uc.dwHostNameLength);
-    std::wstring path(uc.lwpsUrlPath, uc.dwUrlPathLength);
-    if (uc.dwExtraInfoLength) path.append(uc.lwpsExtraInfo, uc.dwExtraInfoLength);
+    std::wstring host(uc.lpszHostName, uc.dwHostNameLength);
+    std::wstring path(uc.lpszUrlPath, uc.dwUrlPathLength);
+    if (uc.dwExtraInfoLength && uc.lpszExtraInfo) path.append(uc.lpszExtraInfo, uc.dwExtraInfoLength);
     if (path.empty()) path = L"/";
     bool https = uc.nScheme == INTERNET_SCHEME_HTTPS;
     HINTERNET session = WinHttpOpen(L"CritLauncher/1.8", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
@@ -280,7 +302,9 @@ struct D3DRenderer {
         scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         scd.SampleDesc.Count = 1;
         scd.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-        hr = factory->CreateSwapChainForHwnd(device, hwnd, &scd, nullptr, nullptr, &swap);
+        IDXGISwapChain1* swap1 = nullptr;
+        hr = factory->CreateSwapChainForHwnd(device, hwnd, &scd, nullptr, nullptr, &swap1);
+        if (SUCCEEDED(hr) && swap1) swap = swap1;
         if (FAILED(hr)) {
             // flip model unavailable: fall back to the legacy blt model
             DXGI_SWAP_CHAIN_DESC scd2{};
@@ -563,9 +587,9 @@ public:
     float DpiScale() const override { return dpi; }
     const char* Name() const override { return "d3d11"; }
 
-    void Minimize() override { ShowWindow(hwnd, SW_MINIMIZE); }
-    void ToggleMaximize() override { ShowWindow(hwnd, IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE); }
-    bool IsMaximized() const override { return IsZoomed(hwnd) != 0; }
+    void Minimize() override { ::ShowWindow(hwnd, SW_MINIMIZE); }
+    void ToggleMaximize() override { ::ShowWindow(hwnd, ::IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE); }
+    bool IsMaximized() const override { return ::IsZoomed(hwnd) != 0; }
     void Close() override { quit = true; PostMessageW(hwnd, WM_CLOSE, 0, 0); }
     void BeginDrag() override {
         POINT pt;
@@ -574,11 +598,11 @@ public:
         SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
     }
     void SetCursor(int cursor) override {
-        SetCursor(g_cursors[std::clamp(cursor, 0, 3)]);
+        ::SetCursor(g_cursors[std::clamp(cursor, 0, 3)]);
     }
     void SetIcon(const void* icoData, size_t size) override {
         if (!icoData || !size) return;
-        HICON big = nullptr, small = nullptr;
+        HICON hBig = nullptr, hSmall = nullptr;
         // window icon from embedded .ico bytes
         UINT off = 0;
         if (size < 6) return;
@@ -593,15 +617,15 @@ public:
                                                 e[1] == 0 ? 256 : e[1], LR_DEFAULTCOLOR);
             if (!ic) continue;
             if ((e[0] == 0 ? 256 : e[0]) >= 32) {
-                if (big) DestroyIcon(big);
-                big = ic;
+                if (hBig) DestroyIcon(hBig);
+                hBig = ic;
             } else {
-                if (small) DestroyIcon(small);
-                small = ic;
+                if (hSmall) DestroyIcon(hSmall);
+                hSmall = ic;
             }
         }
-        if (big) SendMessageW(hwnd, WM_SETICON, ICON_BIG, (LPARAM)big);
-        if (small) SendMessageW(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)small);
+        if (hBig) SendMessageW(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hBig);
+        if (hSmall) SendMessageW(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hSmall);
         (void)off;
     }
     void SetClipboard(const string& utf8) override {
@@ -741,7 +765,9 @@ public:
     }
 };
 
-void RendererState_SetInput(InputState* in) { g_input = in; }
+void RendererState_SetInput(InputState* inputState) { g_input = inputState; }
+// public name used by App::Run (declared in app.h / render/renderer_hooks.h)
+void SetRendererInput(InputState* input) { RendererState_SetInput(input); }
 
 namespace {
 std::mutex& RenderMutex() {
@@ -1000,7 +1026,7 @@ bool RunCapture(const string& exe, const std::vector<string>& args, string& out,
             DWORD avail = 0;
             if (PeekNamedPipe(h->readPipe, nullptr, 0, nullptr, &avail, nullptr) && avail > 0) {
                 DWORD read = 0;
-                if (ReadFile(h->readPipe, buf, std::min<DWORD>(avail, sizeof buf), &read, nullptr) && read) {
+                if (ReadFile(h->readPipe, buf, std::min<DWORD>(avail, (DWORD)sizeof buf), &read, nullptr) && read) {
                     out.append(buf, read);
                 }
             }
@@ -1017,7 +1043,7 @@ bool RunCapture(const string& exe, const std::vector<string>& args, string& out,
         DWORD avail = 0;
         while (PeekNamedPipe(h->readPipe, nullptr, 0, nullptr, &avail, nullptr) && avail > 0) {
             DWORD read = 0;
-            if (ReadFile(h->readPipe, buf, std::min<DWORD>(avail, sizeof buf), &read, nullptr) && read) out.append(buf, read);
+            if (ReadFile(h->readPipe, buf, std::min<DWORD>(avail, (DWORD)sizeof buf), &read, nullptr) && read) out.append(buf, read);
             else break;
         }
     }

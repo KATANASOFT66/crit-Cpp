@@ -1,6 +1,7 @@
 // Crit Launcher Native — software rasterizer + PNG io for the preview tool.
 #include "render/preview.h"
 
+#include "core/pngread.h"
 #include "core/zip.h"
 #include "ui/ui.h"
 
@@ -226,76 +227,11 @@ static uint32_t ReadU32(const uint8_t* p) {
 }
 
 bool PngRead(const string& path, RasterTarget& t) {
-    FILE* f = fopen(path.c_str(), "rb");
-    if (!f) return false;
-    fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    std::vector<uint8_t> file((size_t)sz);
-    if (fread(file.data(), 1, file.size(), f) != file.size()) {
-        fclose(f);
-        return false;
-    }
-    fclose(f);
-    if (file.size() < 8) return false;
-    size_t pos = 8;
-    int w = 0, h = 0, bd = 0, ct = 0;
-    std::vector<uint8_t> idat;
-    while (pos + 8 <= file.size()) {
-        uint32_t ln = ReadU32(&file[pos]);
-        string type((char*)&file[pos + 4], 4);
-        pos += 8;
-        if (pos + ln > file.size()) break;
-        if (type == "IHDR") {
-            w = (int)ReadU32(&file[pos]);
-            h = (int)ReadU32(&file[pos + 4]);
-            bd = file[pos + 8];
-            ct = file[pos + 9];
-        } else if (type == "IDAT") {
-            idat.insert(idat.end(), file.begin() + pos, file.begin() + pos + ln);
-        }
-        pos += ln + 4;
-    }
-    if (bd != 8 || (ct != 2 && ct != 6) || w <= 0 || h <= 0) return false;
-    std::vector<uint8_t> raw;
-    if (!InflateZlib(idat.data(), idat.size(), raw)) return false;
-    idat.swap(raw);
-    int ch = ct == 6 ? 4 : 3;
-    size_t stride = (size_t)w * ch;
-    t.w = w;
-    t.h = h;
-    t.rgba.assign((size_t)w * h * 4, 255);
-    std::vector<uint8_t> prev(stride, 0);
-    const uint8_t* src = idat.data();
-    std::vector<uint8_t> line(stride);
-    for (int y = 0; y < h; y++) {
-        uint8_t filter = *src++;
-        memcpy(line.data(), src, stride);
-        src += stride;
-        if (filter == 1) for (size_t i = ch; i < stride; i++) line[i] = (uint8_t)(line[i] + line[i - ch]);
-        else if (filter == 2) for (size_t i = 0; i < stride; i++) line[i] = (uint8_t)(line[i] + prev[i]);
-        else if (filter == 3) {
-            for (size_t i = 0; i < stride; i++) {
-                int a = i >= (size_t)ch ? line[i - ch] : 0;
-                line[i] = (uint8_t)(line[i] + ((a + prev[i]) >> 1));
-            }
-        } else if (filter == 4) {
-            for (size_t i = 0; i < stride; i++) {
-                int a = i >= (size_t)ch ? line[i - ch] : 0, b = prev[i], c = i >= (size_t)ch ? prev[i - ch] : 0;
-                int p = a + b - c, pa = abs(p - a), pb = abs(p - b), pc = abs(p - c);
-                int pr = (pa <= pb && pa <= pc) ? a : (pb <= pc ? b : c);
-                line[i] = (uint8_t)(line[i] + pr);
-            }
-        }
-        for (int x = 0; x < w; x++) {
-            uint8_t* dst = &t.rgba[((size_t)y * w + x) * 4];
-            dst[0] = line[(size_t)x * ch];
-            dst[1] = line[(size_t)x * ch + 1];
-            dst[2] = line[(size_t)x * ch + 2];
-            if (ch == 4) dst[3] = line[(size_t)x * ch + 3];
-        }
-        prev = line;
-    }
+    ImageRGBA img;
+    if (!PngDecodeFile(path, img)) return false;
+    t.w = img.w;
+    t.h = img.h;
+    t.rgba = std::move(img.rgba);
     return true;
 }
 

@@ -11,11 +11,13 @@ SOURCES="src/main.cpp src/app/app.cpp src/app/shell.cpp src/app/home.cpp src/app
 src/app/overlays.cpp src/app/page_instances.cpp src/app/page_accounts.cpp \
 src/app/page_settings.cpp src/app/page_misc.cpp src/ui/framework.cpp \
 src/render/canvas.cpp src/render/font.cpp src/render/svg.cpp \
-src/core/util.cpp src/core/zip.cpp src/platform/json.cpp src/platform/win_platform.cpp"
+src/core/util.cpp src/core/zip.cpp src/core/pngread.cpp src/platform/json.cpp src/platform/win_platform.cpp"
 
 mkdir -p build
 # shellcheck disable=SC2086
-"$ZIG" c++ -target x86_64-windows-gnu -std=c++17 -O2 -DNDEBUG \
+# -municode: lld's startup object looks for wWinMain (the Microsoft convention),
+# which is the entry point main.cpp defines.
+"$ZIG" c++ -target x86_64-windows-gnu -municode -std=c++17 -O2 -DNDEBUG \
   -D_CRT_SECURE_NO_WARNINGS -DUNICODE -D_UNICODE -DCRIT_USE_STB \
   -Isrc -Ithird_party/stb \
   $SOURCES -o build/CritLauncher.exe \

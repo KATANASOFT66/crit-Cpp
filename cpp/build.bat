@@ -24,7 +24,7 @@ set SRC=src\main.cpp src\app\app.cpp src\app\shell.cpp src\app\home.cpp src\app\
 set SRC=%SRC% src\app\overlays.cpp src\app\page_instances.cpp src\app\page_accounts.cpp
 set SRC=%SRC% src\app\page_settings.cpp src\app\page_misc.cpp src\ui\framework.cpp
 set SRC=%SRC% src\render\canvas.cpp src\render\font.cpp src\render\svg.cpp
-set SRC=%SRC% src\core\util.cpp src\core\zip.cpp src\platform\json.cpp src\platform\win_platform.cpp
+set SRC=%SRC% src\core\util.cpp src\core\zip.cpp src\core\pngread.cpp src\platform\json.cpp src\platform\win_platform.cpp
 
 cl /nologo /std:c++17 /O2 /EHsc /W3 /DNDEBUG /D_CRT_SECURE_NO_WARNINGS /DUNICODE /D_UNICODE ^
    /I src /I third_party\stb /DCRIT_USE_STB %SRC% ^

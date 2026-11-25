@@ -53,12 +53,19 @@ PSIn VSMain(VSIn i) {
 
 float4 PSImage(PSIn i) : SV_Target {
     float4 c = g_tex.Sample(g_smp, i.uv);
-    return float4(c.rgb * i.color.rgb, c.a * i.color.a);
+    // PREMULTIPLIED output, matching the ONE / INV_SRC_ALPHA blend state.
+    // Multiplying rgb by alpha here is what makes transparent texels contribute
+    // nothing; without it a transparent white texel adds full white (solid
+    // squares where glyph icons should be, white veils over the panels).
+    float4 o = c * i.color;
+    o.rgb *= o.a;
+    return o;
 }
 
 float4 PSText(PSIn i) : SV_Target {
-    float a = g_tex.Sample(g_smp, i.uv).a;
-    return float4(i.color.rgb, i.color.a * a);
+    float a = g_tex.Sample(g_smp, i.uv).a * i.color.a;
+    // premultiplied (see PSImage)
+    return float4(i.color.rgb * a, a);
 }
 
 // exact sdf for a rounded box centered on the pixel
@@ -82,7 +89,9 @@ float4 PSShape(PSIn i) : SV_Target {
         float w = max(i.rp.y, 0.5);
         cov = saturate(0.5 - (abs(d + w * 0.5) - w * 0.5));
     }
-    return float4(i.color.rgb, i.color.a * cov);
+    // premultiplied (see PSImage)
+    float a = i.color.a * cov;
+    return float4(i.color.rgb * a, a);
 }
 )HLSL";
 

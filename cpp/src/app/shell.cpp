@@ -132,6 +132,15 @@ void App::DrawTopBar(const Rect& r) {
     const Theme& th = GetTheme();
     Canvas& cv = render.canvas;
     UIContext& ctx = ui.ctx;
+
+    // The window is borderless, so an empty stretch of the title bar has to act
+    // as the OS caption: press and drag to move the window.
+    if (!ui.AnyOverlay()) {
+        // leave the window buttons (right-most 138px) and the nav buttons alone
+        Rect dragZone(r.x + 210.f, r.y, r.w - 210.f - 150.f, r.h);
+        if (dragZone.w > 0.f && ctx.Hit(dragZone) && ui.ctx.in.pressed) platform->BeginDrag();
+    }
+
     cv.FillRect(r, th.bg);
     cv.FillRect(Rect(r.x, r.b() - 1.f, r.w, 1.f), th.borderSoft);
 

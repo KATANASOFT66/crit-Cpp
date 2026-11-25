@@ -344,9 +344,9 @@ struct D3DRenderer {
         device->CreateDepthStencilState(&dsd, &depthOff);
         D3D11_BUFFER_DESC cbd{};
         cbd.Usage = D3D11_USAGE_DYNAMIC;
-        // two float4s: g_params (shape type) + g_screen (viewport size for the
-        // pixel->clip transform in VSMain)
-        cbd.ByteWidth = 32;
+        // three float4s: g_params (shape type), g_screen (logical size) and
+        // g_scale (DPI factor) for the pixel->clip transform in VSMain
+        cbd.ByteWidth = 48;
         cbd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
         cbd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         device->CreateBuffer(&cbd, nullptr, &cb);
@@ -445,8 +445,9 @@ struct D3DRenderer {
         static int frameLog = 0;
         for (const Batch& b : cv.batches) {
             if (b.indexCount == 0) continue;
-            D3D11_RECT scissor{(LONG)std::floor(b.clip.x), (LONG)std::floor(b.clip.y),
-                               (LONG)std::ceil(b.clip.r()), (LONG)std::ceil(b.clip.b())};
+            // clip is logical; scissor is physical
+            D3D11_RECT scissor{(LONG)std::floor(b.clip.x * dpi), (LONG)std::floor(b.clip.y * dpi),
+                               (LONG)std::ceil(b.clip.r() * dpi), (LONG)std::ceil(b.clip.b() * dpi)};
             scissor.left = std::max(0L, scissor.left);
             scissor.top = std::max(0L, scissor.top);
             scissor.right = std::min((LONG)width, scissor.right);
@@ -455,8 +456,13 @@ struct D3DRenderer {
             dc->RSSetScissorRects(1, &scissor);
             D3D11_MAPPED_SUBRESOURCE map{};
             if (SUCCEEDED(dc->Map(cb, 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
-                float params[8] = {(float)b.shapeType, 0, 0, 0,
-                                   (float)width,        (float)height, 0, 0};
+                // The UI lays out in logical units; the backbuffer is in physical
+                // pixels. Without the dpi factor the whole interface was drawn at
+                // 1x into a larger viewport and Windows upscaled it -- soft text,
+                // blurry icons and a 6px-thick look on 125%/150% displays.
+                float params[12] = {(float)b.shapeType, 0, 0, 0,
+                                    (float)width,        (float)height, 0, 0,
+                                    dpi,                 0, 0, 0};
                 memcpy(map.pData, params, sizeof params);
                 dc->Unmap(cb, 0);
             }
@@ -678,6 +684,7 @@ public:
             case WM_DPICHANGED: {
                 if (self) {
                     self->dpi = (float)HIWORD(wp) / 96.f;
+                    self->gpu.dpi = self->dpi;
                     RECT* rc = (RECT*)lp;
                     SetWindowPos(hwnd, nullptr, rc->left, rc->top, rc->right - rc->left, rc->bottom - rc->top,
                                  SWP_NOZORDER | SWP_NOACTIVATE);
@@ -686,7 +693,9 @@ public:
             }
             case WM_MOUSEMOVE: {
                 if (g_input) {
-                    g_input->mouse = Vec2((float)GET_X_LPARAM(lp), (float)GET_Y_LPARAM(lp));
+                    // WM_MOUSEMOVE gives physical pixels; hit-testing uses logical.
+                    float s = self->dpi > 0.f ? self->dpi : 1.f;
+                    g_input->mouse = Vec2((float)GET_X_LPARAM(lp) / s, (float)GET_Y_LPARAM(lp) / s);
                     if (!self->trackingLeave) {
                         TRACKMOUSEEVENT tme{sizeof(tme), TME_LEAVE, hwnd, 0};
                         TrackMouseEvent(&tme);

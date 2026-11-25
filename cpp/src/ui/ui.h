@@ -22,6 +22,11 @@ namespace crit {
 extern float kScreenW;
 extern float kScreenH;
 
+// Physical pixels per logical pixel (Windows display scaling). Fonts and icons
+// rasterize at this multiplier so they are generated at true device resolution
+// instead of being bitmap-upscaled by the vertex shader.
+extern float kUiScale;
+
 // ---------------------------------------------------------------- theme
 struct Theme {
     Color bg, panel, panel2, panel3, border, borderSoft, text, dim, faint;

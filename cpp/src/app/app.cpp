@@ -634,6 +634,8 @@ int App::Run() {
     plat->SetIcon(kIconIco, kIconIcoSize);
     dpi = plat->DpiScale();
     render.canvas.textures = &render.textures;
+    // Rasterise glyphs/icons at true device resolution before anything is built.
+    kUiScale = dpi > 0.f ? dpi : 1.f;
     Fonts().Init(render.canvas);
     Icons().Init(render.canvas);
     SetRendererInput(&input);
@@ -677,6 +679,8 @@ void App::Frame() {
         fpsFrames = 0;
     }
     Vec2 cs = platform->ClientSize();
+    dpi = platform->DpiScale();  // may change when dragged to another monitor
+    kUiScale = dpi > 0.f ? dpi : 1.f;
     size = Vec2(cs.x / dpi, cs.y / dpi);
     kScreenW = size.x;
     kScreenH = size.y;

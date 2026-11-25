@@ -6,6 +6,7 @@ namespace crit {
 
 float kScreenW = 1920.f;
 float kScreenH = 1080.f;
+float kUiScale = 1.f;
 
 // ---------------------------------------------------------------- theme
 static Theme g_theme;
@@ -93,7 +94,10 @@ IconAtlas& Icons() {
 
 bool IconAtlas::Init(Canvas& cv) {
     for (size_t i = 0; i < kIconCount; i++) {
-        float px = i < 70 ? 24.f : 24.f;
+        // Icons are drawn into a 24pt box. Rasterise large enough that the box is
+        // a downscale rather than an upscale on scaled displays, otherwise the
+        // glyphs look soft next to HTML (which renders vectors at device res).
+        float px = 24.f * (kUiScale > 1.f ? kUiScale : 1.f);
         bool filled = strcmp(kIcons[i].name, "play") == 0 || strcmp(kIcons[i].name, "square") == 0;
         auto tex = RenderSvgIcon(kIcons[i].svg, px, 2, filled);
         ids[kIcons[i].name] = cv.AddTexture(tex);

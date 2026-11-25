@@ -24,7 +24,8 @@ struct PSIn {
 
 cbuffer Params : register(b0) {
     float4 g_params;  // x = shape type (0 fill, 1 shadow, 2 border)
-    float4 g_screen;  // xy = viewport size in pixels, zw = unused
+    float4 g_screen;  // xy = logical viewport size, zw = unused
+    float4 g_scale;   // x = dpi factor (physical px per logical px)
 };
 
 Texture2D    g_tex : register(t0);
@@ -41,8 +42,11 @@ float2 PixelToClip(float2 px, float2 screen) {
 
 PSIn VSMain(VSIn i) {
     PSIn o;
+    // Layout is in logical units; the viewport is in physical pixels, so convert
+    // by the dpi factor first or everything is upscaled from 1x (blurry).
     float2 screen = max(g_screen.xy, float2(1.0, 1.0));
-    o.pos = float4(PixelToClip(i.pos, screen), 0.0, 1.0);
+    float2 phys = i.pos * max(g_scale.x, 0.5);
+    o.pos = float4(PixelToClip(phys, screen * max(g_scale.x, 0.5)), 0.0, 1.0);
     o.uv = i.uv;
     o.color = i.color;
     o.local = i.local;

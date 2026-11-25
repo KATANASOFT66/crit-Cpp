@@ -6,6 +6,11 @@
 
 #include "core/fontdata.h"
 
+namespace crit {
+// kUiScale (physical px per logical px) lives with the rest of the UI globals.
+extern float kUiScale;
+}
+
 #ifdef CRIT_USE_STB
 #ifndef STB_TRUETYPE_IMPLEMENTATION
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -139,6 +144,9 @@ float FontAtlas::LineHeight(int weight, float px) const {
 
 static Glyph* FetchGlyph(FontAtlas::Impl* impl, int weight, int px, uint32_t cp) {
     weight = NearestWeight(weight);
+    // px is a DEVICE-pixel size; the metrics below are divided back down to
+    // logical units so all layout code keeps working in logical space.
+    const float toLogical = kUiScale > 0.f ? 1.f / kUiScale : 1.f;
     uint64_t key = ((uint64_t)weight << 42) ^ ((uint64_t)px << 32) ^ (cp & 0x1FFFFF);
     auto it = impl->glyphs.find(key);
     if (it != impl->glyphs.end()) return &it->second;
@@ -152,11 +160,11 @@ static Glyph* FetchGlyph(FontAtlas::Impl* impl, int weight, int px, uint32_t cp)
     int x0, y0, x1, y1;
     stbtt_GetGlyphBitmapBoxSubpixel(&face->info, gi, sz->scale, sz->scale, 0.f, 0.f, &x0, &y0, &x1, &y1);
     Glyph g;
-    g.advance = advW * sz->scale;
-    g.x0 = (float)x0;
-    g.y0 = (float)y0;
-    g.x1 = (float)x1;
-    g.y1 = (float)y1;
+    g.advance = advW * sz->scale * toLogical;
+    g.x0 = (float)x0 * toLogical;
+    g.y0 = (float)y0 * toLogical;
+    g.x1 = (float)x1 * toLogical;
+    g.y1 = (float)y1 * toLogical;
     int gw = x1 - x0, gh = y1 - y0;
     if (gw > 0 && gh > 0) {
         if (impl->cursorX + gw + 2 > impl->pageW) {
@@ -210,7 +218,8 @@ static string UpperAscii(const string& in) {
 
 float FontAtlas::MeasureLine(const string& text, const TextStyle& style) {
     if (!impl_ || !impl_->ready) return 0.f;
-    int px = std::max(1, (int)std::lround(style.size));
+    // Rasterize at device resolution so glyphs are crisp on scaled displays.
+    int px = std::max(1, (int)std::lround(style.size * kUiScale));
     float w = 0.f;
     auto cps = Utf8Decode(text);
     for (uint32_t cp : cps) {
@@ -275,7 +284,7 @@ float FontAtlas::Draw(Canvas& cv, const string& text, const TextStyle& style, fl
     float lineBox = lh * 1.45f;
     float asc = Ascender(style.weight, style.size);
     float baselineOffset = asc + (lineBox - lh) * 0.5f;
-    int px = std::max(1, (int)std::lround(style.size));
+    int px = std::max(1, (int)std::lround(style.size * kUiScale));
     int pageId0 = impl_->pageIds.empty() ? -1 : impl_->pageIds[0];
     float maxAvail = maxHeight > 0.f ? maxHeight : 1e9f;
     int drawn = 0;

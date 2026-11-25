@@ -70,14 +70,14 @@ void App::DrawSettings(const Rect& area) {
                         string wv = std::to_string(settings.gameWidth);
                         Rect wf(b.x, b.y + 18.f, 110.f, 36.f);
                         if (ctx.TextField("gamew", wf, wv, "0")) {
-                            settings.gameWidth = clampf((float)atoi(wv.c_str()), 0.f, 7680.f);
+                            settings.gameWidth = (int)clampf((float)atoi(wv.c_str()), 0.f, 7680.f);
                             SaveSettings();
                         }
                         ctx.Text("Height", b.x + 130.f, b.y, 12.5f, 500, th.dim);
                         string hv = std::to_string(settings.gameHeight);
                         Rect hf(b.x + 130.f, b.y + 18.f, 110.f, 36.f);
                         if (ctx.TextField("gameh", hf, hv, "0")) {
-                            settings.gameHeight = clampf((float)atoi(hv.c_str()), 0.f, 4320.f);
+                            settings.gameHeight = (int)clampf((float)atoi(hv.c_str()), 0.f, 4320.f);
                             SaveSettings();
                         }
                         bool fs = settings.fullscreen;

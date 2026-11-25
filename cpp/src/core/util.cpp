@@ -7,7 +7,7 @@
 #include <mutex>
 
 #ifdef _WIN32
-#include <windows.h>
+#include "core/win_headers.h"
 #endif
 
 namespace crit {

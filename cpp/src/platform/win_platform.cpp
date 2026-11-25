@@ -1,18 +1,8 @@
 // Crit Launcher Native — Win32 window + DirectX 11 renderer + WinHTTP.
 #ifdef _WIN32
 
-// windows.h defines min/max as macros: every std::min/std::max below would turn
-// into garbage ("'(' : illegal token on right side of '::'") without this.
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-// Keep <winsock.h> out of the way so it can't clash with the WinHTTP headers.
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
+#include "core/win_headers.h"  // NOMINMAX + windows.h + windowsx.h, "small" undefined
 
-#include <windows.h>
-#include <windowsx.h>  // GET_X_LPARAM / GET_Y_LPARAM
 #include <d3d11.h>
 #include <d3d11_1.h>
 #include <dxgi1_3.h>  // IDXGIFactory2, DXGI_SWAP_CHAIN_DESC1
@@ -21,12 +11,6 @@
 #include <shlobj.h>
 #include <wincodec.h>
 #include <winhttp.h>
-
-// rpcndr.h (pulled in by windows.h) aliases "small" to "char"; the UI uses that
-// as a parameter name, so drop the macro before the crit headers.
-#ifdef small
-#undef small
-#endif
 
 #include <cstdio>
 #include <thread>
@@ -589,7 +573,7 @@ public:
 
     void Minimize() override { ::ShowWindow(hwnd, SW_MINIMIZE); }
     void ToggleMaximize() override { ::ShowWindow(hwnd, ::IsZoomed(hwnd) ? SW_RESTORE : SW_MAXIMIZE); }
-    bool IsMaximized() const override { return ::IsZoomed(hwnd) != 0; }
+    bool WindowIsMaximized() const override { return ::IsZoomed(hwnd) != 0; }
     void Close() override { quit = true; PostMessageW(hwnd, WM_CLOSE, 0, 0); }
     void BeginDrag() override {
         POINT pt;

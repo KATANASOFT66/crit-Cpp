@@ -47,7 +47,9 @@ public:
     // window chrome
     virtual void Minimize() = 0;
     virtual void ToggleMaximize() = 0;
-    virtual bool IsMaximized() const = 0;
+    // Named WindowIsMaximized: "IsMaximized" is a function-like macro in some
+    // SDK configurations (C4003), and macros do not survive that collision.
+    virtual bool WindowIsMaximized() const = 0;
     virtual void Close() = 0;
     // drag the whole window (custom title bar)
     virtual void BeginDrag() = 0;

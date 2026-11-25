@@ -3,7 +3,7 @@
 #include "platform/platform.h"
 
 #ifdef _WIN32
-#include <windows.h>
+#include "core/win_headers.h"
 #include <shellscalingapi.h>
 
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int) {

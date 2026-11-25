@@ -543,9 +543,14 @@ public:
         // window placement (restores the last session)
         int x = CW_USEDEFAULT, y = CW_USEDEFAULT;
         RECT desired{0, 0, cfg.width, cfg.height};
-        AdjustWindowRectExForDpi(&desired, WS_OVERLAPPEDWINDOW, FALSE, 0, GetDpiForSystem());
+        // The launcher draws its own title bar, including minimise / maximise /
+        // close and its own drag handling, so the window is created borderless.
+        // With WS_OVERLAPPEDWINDOW the native frame sat on top of the custom one
+        // and the app showed two title bars at once.
+        const DWORD kStyle = WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU;
+        AdjustWindowRectExForDpi(&desired, kStyle, FALSE, 0, GetDpiForSystem());
         int ww = desired.right - desired.left, wh = desired.bottom - desired.top;
-        hwnd = CreateWindowExW(WS_EX_APPWINDOW, L"CritLauncherNative", cfg.title, WS_OVERLAPPEDWINDOW, x, y, ww, wh,
+        hwnd = CreateWindowExW(WS_EX_APPWINDOW, L"CritLauncherNative", cfg.title, kStyle, x, y, ww, wh,
                                nullptr, nullptr, inst, this);
         if (!hwnd) return false;
         g_platform = this;
@@ -750,9 +755,30 @@ public:
                 }
                 return 0;
             }
+            case WM_NCHITTEST: {
+                // Borderless window (WS_POPUP): give the OS resize borders back
+                // so dragging an edge still works with WS_THICKFRAME.
+                POINT pt{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
+                RECT wr{};
+                GetWindowRect(hwnd, &wr);
+                const int b = 6;  // grab thickness in physical pixels
+                bool left = pt.x < wr.left + b, right = pt.x >= wr.right - b;
+                bool top = pt.y < wr.top + b, bottom = pt.y >= wr.bottom - b;
+                if (top && left) return HTTOPLEFT;
+                if (top && right) return HTTOPRIGHT;
+                if (bottom && left) return HTBOTTOMLEFT;
+                if (bottom && right) return HTBOTTOMRIGHT;
+                if (left) return HTLEFT;
+                if (right) return HTRIGHT;
+                if (top) return HTTOP;
+                if (bottom) return HTBOTTOM;
+                return HTCLIENT;
+            }
             case WM_SETCURSOR: {
-                // keep the cursor we set from the render loop
-                return TRUE;
+                // keep the cursor we set from the render loop, except on the
+                // resize borders where NCHITTEST already returned an edge.
+                if (LOWORD(lp) == HTCLIENT) return TRUE;
+                break;
             }
             case WM_GETMINMAXINFO: {
                 auto mmi = (MINMAXINFO*)lp;

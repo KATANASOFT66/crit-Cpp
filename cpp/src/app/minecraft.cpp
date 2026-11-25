@@ -1,6 +1,6 @@
 // Crit Launcher Native — Minecraft install + launch engine (vanilla, Fabric, Forge/NeoForge).
 #ifdef _WIN32
-#include <windows.h>  // SearchPathW
+#include "core/win_headers.h"  // NOMINMAX + windows.h + windowsx.h (SearchPathW)
 #endif
 
 #include <atomic>

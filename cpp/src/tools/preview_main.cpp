@@ -26,7 +26,7 @@ public:
     const char* Name() const override { return "preview"; }
     void Minimize() override {}
     void ToggleMaximize() override {}
-    bool IsMaximized() const override { return false; }
+    bool WindowIsMaximized() const override { return false; }
     void Close() override {}
     void BeginDrag() override {}
     void SetCursor(int) override {}

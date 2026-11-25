@@ -78,7 +78,10 @@ inline Color mix(const Color& a, const Color& b, float t) { return a.mix(b, t); 
 // ---------------------------------------------------------------- math
 constexpr float kPi = 3.14159265358979f;
 inline float lerp(float a, float b, float t) { return a + (b - a) * t; }
-inline float clamp01(float v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
+// Takes a double on purpose: callers clamp time ratios like
+// (t - fadeStart) / dur, which are double. Narrowing at the call site would
+// trigger C4244 in every animation, so the conversion happens exactly once here.
+inline float clamp01(double v) { return v < 0 ? 0.f : (v > 1 ? 1.f : (float)v); }
 inline float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 // CSS cubic-bezier(x1,y1,x2,y2) progress curve, solved like a browser does.
 float CubicBezier(float x1, float y1, float x2, float y2, float x);

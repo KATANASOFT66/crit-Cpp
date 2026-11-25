@@ -299,7 +299,7 @@ bool UIContext::GhostButton(const string& id, const Rect& r, const string& label
         cx += iconW;
     }
     if (!label.empty()) {
-        float lh = Fonts().LineHeight(14.f, 14.f) * 1.45f;
+        float lh = Fonts().LineHeight(500, 14.f) * 1.45f;
         Fonts().Draw(cv, label, st, cx, r.y + (r.h - lh) * 0.5f);
     }
     if (hover && in.pressed) root->active = id;
@@ -346,7 +346,7 @@ bool UIContext::NavItem(const string& id, const Rect& r, int icon, const string&
         st.size = 14.f;
         st.weight = 500;
         st.color = fg;
-        float lh = Fonts().LineHeight(14.f, 14.f) * 1.45f;
+        float lh = Fonts().LineHeight(500, 14.f) * 1.45f;
         Fonts().Draw(cv, label, st, r.x + 47.f, r.y + (r.h - lh) * 0.5f, std::max(0.f, r.w - 55.f));
     }
     if (collapsed && hover) root->QueueTip(label, r);
